@@ -27,7 +27,8 @@ import {
   convertJSXIdentifier,
   canNativeSpread,
   transformCondition,
-  trimWhitespace
+  trimWhitespace,
+  inlineCallExpression
 } from "../shared/utils";
 import { transformNode } from "../shared/transform";
 import { InlineElements, BlockElements } from "./constants";
@@ -61,7 +62,12 @@ export function transformElement(path, info) {
     config = getConfig(path),
     wrapSVG = info.topLevel && tagName != "svg" && SVGElements.has(tagName),
     voidTag = VoidElements.indexOf(tagName) > -1,
-    isCustomElement = tagName.indexOf("-") > -1 || !!path.get("openingElement").get("attributes").find(a => a.node.name?.name === "is"),
+    isCustomElement =
+      tagName.indexOf("-") > -1 ||
+      !!path
+        .get("openingElement")
+        .get("attributes")
+        .find(a => a.node.name?.name === "is"),
     results = {
       template: `<${tagName}`,
       declarations: [],
@@ -211,7 +217,11 @@ export function setAttr(path, elem, name, value, { isSVG, dynamic, prevId, isCE,
 
   if (dynamic && name === "textContent") {
     if (config.hydratable) {
-      return t.callExpression(registerImportMethod(path, "setProperty"), [elem, t.stringLiteral("data"), value]);
+      return t.callExpression(registerImportMethod(path, "setProperty"), [
+        elem,
+        t.stringLiteral("data"),
+        value
+      ]);
     }
     return t.assignmentExpression("=", t.memberExpression(elem, t.identifier("data")), value);
   }
@@ -222,7 +232,11 @@ export function setAttr(path, elem, name, value, { isSVG, dynamic, prevId, isCE,
   if (namespace !== "attr" && (isChildProp || (!isSVG && isProp) || isCE || namespace === "prop")) {
     if (isCE && !isChildProp && !isProp && namespace !== "prop") name = toPropertyName(name);
     if (config.hydratable && namespace !== "prop") {
-      return t.callExpression(registerImportMethod(path, "setProperty"), [elem, t.stringLiteral(name), value]);
+      return t.callExpression(registerImportMethod(path, "setProperty"), [
+        elem,
+        t.stringLiteral(name),
+        value
+      ]);
     }
     return t.assignmentExpression(
       "=",
@@ -469,9 +483,7 @@ function transformAttributes(path, results) {
           if (!isFunction && t.isLVal(value.expression)) {
             const refIdentifier = path.scope.generateUidIdentifier("_ref$");
             results.exprs.unshift(
-              t.variableDeclaration("var", [
-                t.variableDeclarator(refIdentifier, value.expression)
-              ]),
+              t.variableDeclaration("var", [t.variableDeclarator(refIdentifier, value.expression)]),
               t.expressionStatement(
                 t.conditionalExpression(
                   t.binaryExpression(
@@ -499,9 +511,7 @@ function transformAttributes(path, results) {
           } else {
             const refIdentifier = path.scope.generateUidIdentifier("_ref$");
             results.exprs.unshift(
-              t.variableDeclaration("var", [
-                t.variableDeclarator(refIdentifier, value.expression)
-              ]),
+              t.variableDeclaration("var", [t.variableDeclarator(refIdentifier, value.expression)]),
               t.expressionStatement(
                 t.logicalExpression(
                   "&&",
@@ -665,12 +675,14 @@ function transformAttributes(path, results) {
           let nextElem = elem;
           if (key === "value" || key === "checked") {
             const effectWrapperId = registerImportMethod(path, config.effectWrapper);
+            const v = t.identifier("_v$");
             results.postExprs.push(
               t.expressionStatement(
                 t.callExpression(effectWrapperId, [
+                  inlineCallExpression(value.expression),
                   t.arrowFunctionExpression(
-                    [],
-                    setAttr(path, elem, key, value.expression, {
+                    [v],
+                    setAttr(path, elem, key, v, {
                       tagName,
                       isSVG,
                       isCE
@@ -717,7 +729,7 @@ function transformAttributes(path, results) {
           );
         } else {
           !isSVG && (key = key.toLowerCase());
-          results.template += `${needsSpacing ? ' ' : ''}${key}`;
+          results.template += `${needsSpacing ? " " : ""}${key}`;
           if (!value) {
             needsSpacing = true;
             return;
@@ -1041,12 +1053,7 @@ function processSpreads(path, attributes, { elem, isSVG, hasChildren, wrapCondit
         isDynamic(attribute.get("argument"), {
           checkMember: true
         }) && (dynamicSpread = true)
-          ? t.isCallExpression(node.argument) &&
-            !node.argument.arguments.length &&
-            !t.isCallExpression(node.argument.callee) &&
-            !t.isMemberExpression(node.argument.callee)
-            ? node.argument.callee
-            : t.arrowFunctionExpression([], node.argument)
+          ? inlineCallExpression(node.argument)
           : node.argument
       );
     } else if (

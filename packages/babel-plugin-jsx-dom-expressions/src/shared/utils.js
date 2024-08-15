@@ -93,10 +93,7 @@ export function isDynamic(path, { checkMember, checkTags, checkCallExpressions =
     return false;
   }
 
-  if (
-    checkCallExpressions &&
-    (t.isCallExpression(expr) || t.isOptionalCallExpression(expr))
-  ) {
+  if (checkCallExpressions && (t.isCallExpression(expr) || t.isOptionalCallExpression(expr))) {
     return true;
   }
 
@@ -111,7 +108,7 @@ export function isDynamic(path, { checkMember, checkTags, checkCallExpressions =
           checkMember,
           checkTags,
           checkCallExpressions,
-          native,
+          native
         }))
     ) {
       const binding = path.scope.getBinding(object.name);
@@ -400,6 +397,15 @@ export function canNativeSpread(key, { checkNameSpaces } = {}) {
   return true;
 }
 
+export function inlineCallExpression(node) {
+  return t.isCallExpression(node) &&
+    !node.arguments.length &&
+    !t.isCallExpression(node.callee) &&
+    !t.isMemberExpression(node.callee)
+    ? node.callee
+    : t.arrowFunctionExpression([], node);
+}
+
 const chars = "etaoinshrdlucwmfygpbTAOISWCBvkxjqzPHFMDRELNGUKVYJQZX_$";
 const base = chars.length;
 
@@ -417,19 +423,19 @@ export function getNumberedId(num) {
 }
 
 export function escapeStringForTemplate(str) {
-	return str.replace(/[{\\`\n\t\b\f\v\r\u2028\u2029]/g, ch => templateEscapes.get(ch))
+  return str.replace(/[{\\`\n\t\b\f\v\r\u2028\u2029]/g, ch => templateEscapes.get(ch));
 }
 
 const templateEscapes = new Map([
-	['{', '\\{'],
-	['`', '\\`'],
-	['\\', '\\\\'],
-	['\n', '\\n'],
-	['\t', '\\t'],
-	['\b', '\\b'],
-	['\f', '\\f'],
-	['\v', '\\v'],
-	['\r', '\\r'],
-	['\u2028', '\\u2028'],
-	['\u2029', '\\u2029']
-])
+  ["{", "\\{"],
+  ["`", "\\`"],
+  ["\\", "\\\\"],
+  ["\n", "\\n"],
+  ["\t", "\\t"],
+  ["\b", "\\b"],
+  ["\f", "\\f"],
+  ["\v", "\\v"],
+  ["\r", "\\r"],
+  ["\u2028", "\\u2028"],
+  ["\u2029", "\\u2029"]
+]);
